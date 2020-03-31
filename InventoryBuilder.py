@@ -126,6 +126,7 @@ class InventoryBuilder:
     def query_inventory_permanent(self):
         self.iteration = 0
         while True:
+            threads_vc = list()
             if os.environ['DEBUG'] >= '1':
                 print("real run " + str(self.iteration))
             for vrops in self.vrops_list:
@@ -161,22 +162,30 @@ class InventoryBuilder:
                 if os.environ['DEBUG'] >= '2':
                     print("Collecting Datacenter: " + dc_object.name)
                 dc_object.add_cluster()
+                threads = list()
                 for cl_object in dc_object.clusters:
                     if os.environ['DEBUG'] >= '2':
                         print("Collecting Cluster: " + cl_object.name)
-                    cl_object.add_host()
-                    for hs_object in cl_object.hosts:
-                        if os.environ['DEBUG'] >= '2':
-                            print("Collecting Host: " + hs_object.name)
-                        hs_object.add_datastore()
-                        for ds_object in hs_object.datastores:
-                            if os.environ['DEBUG'] >= '2':
-                                print("Collecting Datastore: " + ds_object.name)
-                        hs_object.add_vm()
-                        for vm_object in hs_object.vms:
-                            if os.environ['DEBUG'] >= '2':
-                                print("Collecting VM: " + vm_object.name)
+                    thread = Thread(target=self.fetch_hosts_parallel,args=(cl_object,))
+                    thread.start()
+                    threads.append(thread)
+                for t in threads:
+                    t.join()
             return vcenter
+
+    def fetch_hosts_parallel(self, cl_object):
+        cl_object.add_host()
+        for hs_object in cl_object.hosts:
+            if os.environ['DEBUG'] >= '2':
+                print("Collecting Host: " + hs_object.name)
+            hs_object.add_datastore()
+            for ds_object in hs_object.datastores:
+                if os.environ['DEBUG'] >= '2':
+                    print("Collecting Datastore: " + ds_object.name)
+            hs_object.add_vm()
+            for vm_object in hs_object.vms:
+                if os.environ['DEBUG'] >= '2':
+                    print("Collecting VM: " + vm_object.name)
 
     def get_vcenters(self):
         tree = dict()
